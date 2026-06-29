@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  FGR Maintenance
  * Description:  Ein Plugin der Freien Gestalterischen Republik. Zeigt Besuchern eine Platzhalterseite (Under Construction oder Wartung). Eingeloggte Benutzer sehen die Website normal.
- * Version:      1.1.0
+ * Version:      1.2.0
  * Author:       Freie Gestalterische Republik
  * Author URI:   https://fgr.design
  * License:      GPL-2.0-or-later
@@ -13,7 +13,17 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'FGR_MAINTENANCE_VERSION', '1.1.0' );
+define( 'FGR_MAINTENANCE_VERSION', '1.2.0' );
+
+// Update-Checker: prüft GitHub-Releases auf neue Versionen
+require_once plugin_dir_path( __FILE__ ) . 'lib/plugin-update-checker/plugin-update-checker.php';
+$fgr_maintenance_updater = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+    'https://github.com/FreieGestalterischeRepublik/fgr-maintenance/',
+    __FILE__,
+    'fgr-maintenance'
+);
+$fgr_maintenance_updater->setBranch( 'main' );
+$fgr_maintenance_updater->getVcsApi()->enableReleaseAssets();
 
 // ── MU-Plugin-Sync ────────────────────────────────────────────────────────────
 // Installiert/aktualisiert das MU-Plugin von GitHub (function_exists-Guard: MU-Plugin definiert dieselbe Funktion)
