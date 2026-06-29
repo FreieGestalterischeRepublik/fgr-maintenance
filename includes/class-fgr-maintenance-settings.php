@@ -60,15 +60,22 @@ class FGR_Maintenance_Settings {
         $settings = wp_enqueue_code_editor( [ 'type' => 'text/html' ] );
         if ( false === $settings ) { return; } // Benutzer hat Code-Editor deaktiviert
 
+        // Editor-Instanz global speichern damit refresh() möglich ist
         wp_add_inline_script(
             'code-editor',
             sprintf(
-                'jQuery( function () {
+                'var fgrCodeEditor = null;
+                var fgrCodeSettings = %s;
+                function fgrInitEditor() {
                     var el = document.getElementById( "fgr_custom_html" );
-                    if ( el ) {
-                        wp.codeEditor.initialize( el, %s );
+                    if ( ! el ) { return; }
+                    if ( fgrCodeEditor ) {
+                        // Bereits initialisiert: Layout neu berechnen (behebt Gutter-Bug bei hidden→visible)
+                        fgrCodeEditor.codemirror.refresh();
+                    } else {
+                        fgrCodeEditor = wp.codeEditor.initialize( el, fgrCodeSettings );
                     }
-                } );',
+                }',
                 wp_json_encode( $settings )
             )
         );
@@ -168,9 +175,18 @@ class FGR_Maintenance_Settings {
             if ( ! row ) { return; }
             radios.forEach( function ( r ) {
                 r.addEventListener( 'change', function () {
-                    row.style.display = ( this.value === 'custom' ) ? '' : 'none';
+                    var show = ( this.value === 'custom' );
+                    row.style.display = show ? '' : 'none';
+                    // Editor erst initialisieren/refreshen wenn sichtbar
+                    if ( show && typeof fgrInitEditor === 'function' ) {
+                        fgrInitEditor();
+                    }
                 } );
             } );
+            // Seite lädt mit Vorlage 3 bereits gewählt → sofort initialisieren
+            if ( row.style.display !== 'none' && typeof fgrInitEditor === 'function' ) {
+                fgrInitEditor();
+            }
         } )();
         </script>
         <?php
