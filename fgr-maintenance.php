@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  FGR Maintenance
  * Description:  Ein Plugin der Freien Gestalterischen Republik. Zeigt Besuchern eine Platzhalterseite (Under Construction oder Wartung). Eingeloggte Benutzer sehen die Website normal.
- * Version:      1.2.0
+ * Version:      1.3.0
  * Author:       Freie Gestalterische Republik
  * Author URI:   https://fgr.design
  * License:      GPL-2.0-or-later
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'FGR_MAINTENANCE_VERSION', '1.2.0' );
+define( 'FGR_MAINTENANCE_VERSION', '1.3.0' );
 
 // Update-Checker: prüft GitHub-Releases auf neue Versionen
 require_once plugin_dir_path( __FILE__ ) . 'lib/plugin-update-checker/plugin-update-checker.php';
@@ -152,7 +152,75 @@ function fgr_maintenance_intercept(): void {
         }
     }
 
+    // ── IP-Whitelist ──────────────────────────────────────────────────────────
+    $ip_whitelist = trim( $opts['ip_whitelist'] ?? '' );
+    if ( $ip_whitelist !== '' ) {
+        $user_ip     = fgr_maintenance_get_ip();
+        $allowed_ips = array_filter( array_map( 'trim', explode( "\n", $ip_whitelist ) ) );
+        if ( $user_ip !== '' && in_array( $user_ip, $allowed_ips, true ) ) {
+            return;
+        }
+    }
+
+    // ── Secret-Link ───────────────────────────────────────────────────────────
+    if ( ! empty( $opts['secret_enabled'] ) ) {
+        $secret      = sanitize_text_field( $opts['secret'] ?? 'fgr-secret' );
+        $cookie_name = 'fgr_maintenance_access';
+
+        if ( $secret !== '' ) {
+            // URL-Parameter erkannt → Cookie setzen und sauber weiterleiten
+            if ( isset( $_GET[ $secret ] ) ) {
+                setcookie(
+                    $cookie_name,
+                    $secret,
+                    [
+                        'expires'  => time() + ( 86400 * 30 ),
+                        'path'     => '/',
+                        'secure'   => is_ssl(),
+                        'httponly' => true,
+                        'samesite' => 'Lax',
+                    ]
+                );
+                // Secret-Parameter aus der URL entfernen und weiterleiten
+                wp_safe_redirect( remove_query_arg( $secret ) );
+                exit;
+            }
+
+            // Gültiges Cookie vorhanden → Seite normal anzeigen
+            if ( isset( $_COOKIE[ $cookie_name ] ) ) {
+                $cookie_val = sanitize_text_field( wp_unslash( $_COOKIE[ $cookie_name ] ) );
+                if ( hash_equals( $secret, $cookie_val ) ) {
+                    return;
+                }
+            }
+        }
+    }
+
     fgr_maintenance_render( $opts );
+}
+
+// Beste Annäherung an die echte Client-IP (analog zu rsucGetIPAddress)
+function fgr_maintenance_get_ip(): string {
+    $candidates = [];
+    if ( ! empty( $_SERVER['HTTP_CLIENT_IP'] ) ) {
+        $candidates[] = sanitize_text_field( wp_unslash( $_SERVER['HTTP_CLIENT_IP'] ) );
+    }
+    if ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+        $xff   = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) );
+        $first = trim( strtok( $xff, ',' ) );
+        if ( $first !== '' ) {
+            $candidates[] = $first;
+        }
+    }
+    if ( ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
+        $candidates[] = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
+    }
+    foreach ( $candidates as $ip ) {
+        if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+            return $ip;
+        }
+    }
+    return '';
 }
 
 function fgr_maintenance_render( array $opts ): void {

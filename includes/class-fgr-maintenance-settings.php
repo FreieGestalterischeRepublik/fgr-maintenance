@@ -47,8 +47,17 @@ class FGR_Maintenance_Settings {
         $html = preg_replace( '#\son\w+\s*=\s*[^\s>]+#i', '', $html );
         $html = preg_replace( '#(href|src|action|formaction)\s*=\s*"\s*javascript:[^"]*"#i', '$1=""', $html );
         $html = preg_replace( "#(href|src|action|formaction)\s*=\s*'\s*javascript:[^']*'#i", '$1=""', $html );
-
         $clean['custom_html'] = $html;
+
+        // Secret-Link
+        $clean['secret_enabled'] = ! empty( $input['secret_enabled'] );
+        $secret                  = sanitize_text_field( $input['secret'] ?? 'fgr-secret' );
+        $clean['secret']         = $secret !== '' ? $secret : 'fgr-secret';
+
+        // IP-Whitelist: jede Zeile einzeln sanitieren
+        $lines = preg_split( '/\r\n|\r|\n/', (string) ( $input['ip_whitelist'] ?? '' ) );
+        $clean['ip_whitelist'] = implode( "\n", array_map( 'sanitize_text_field', $lines ) );
+
         return $clean;
     }
 
@@ -86,10 +95,14 @@ class FGR_Maintenance_Settings {
             wp_die( 'Keine Berechtigung.' );
         }
 
-        $opts     = get_option( 'fgr_maintenance', [ 'active' => false, 'template' => 'aufbau', 'custom_html' => '' ] );
-        $active   = ! empty( $opts['active'] );
-        $template = $opts['template'] ?? 'aufbau';
-        $html     = $opts['custom_html'] ?? '';
+        $opts           = get_option( 'fgr_maintenance', [ 'active' => false, 'template' => 'aufbau', 'custom_html' => '' ] );
+        $active         = ! empty( $opts['active'] );
+        $template       = $opts['template'] ?? 'aufbau';
+        $html           = $opts['custom_html'] ?? '';
+        $secret_enabled = ! empty( $opts['secret_enabled'] );
+        $secret         = $opts['secret'] ?? 'fgr-secret';
+        $ip_whitelist   = $opts['ip_whitelist'] ?? '';
+        $current_ip     = function_exists( 'fgr_maintenance_get_ip' ) ? fgr_maintenance_get_ip() : '';
         ?>
         <div class="wrap">
             <h1>
@@ -162,6 +175,47 @@ class FGR_Maintenance_Settings {
                         </td>
                     </tr>
 
+                    <tr>
+                        <th scope="row">Secret-Link</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="fgr_maintenance[secret_enabled]" value="1" <?php checked( $secret_enabled ); ?>>
+                                <strong>Secret-Link aktivieren</strong>
+                            </label>
+                            <p class="description">Besucher die diesen Link kennen, können die Maintenance-Seite umgehen. Ein Cookie merkt sich den Browser für 30 Tage.</p>
+                            <br>
+                            <label for="fgr_secret_word" style="font-weight:600;">Secret-Wort:</label>
+                            <input type="text" id="fgr_secret_word" name="fgr_maintenance[secret]"
+                                   value="<?php echo esc_attr( $secret ); ?>"
+                                   style="width:200px;margin-left:8px;">
+                            <p class="description" style="margin-top:6px;">
+                                Aktueller Bypass-Link:
+                                <code><?php echo esc_html( home_url( '?' . $secret ) ); ?></code>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">IP-Whitelist</th>
+                        <td>
+                            <textarea
+                                id="fgr_ip_whitelist"
+                                name="fgr_maintenance[ip_whitelist]"
+                                rows="6"
+                                style="width:100%;max-width:400px;font-family:monospace;font-size:13px;"
+                            ><?php echo esc_textarea( $ip_whitelist ); ?></textarea>
+                            <p class="description">
+                                Eine IP-Adresse pro Zeile. Diese IPs sehen die Website immer normal.
+                                <?php if ( $current_ip ) : ?>
+                                    <br>Deine aktuelle IP:
+                                    <code id="fgr-current-ip"><?php echo esc_html( $current_ip ); ?></code>
+                                    <button type="button" class="button button-small" id="fgr-add-ip"
+                                            style="margin-left:6px;">Hinzufügen</button>
+                                <?php endif; ?>
+                            </p>
+                        </td>
+                    </tr>
+
                 </table>
 
                 <?php submit_button( 'Einstellungen speichern' ); ?>
@@ -187,6 +241,25 @@ class FGR_Maintenance_Settings {
             if ( row.style.display !== 'none' && typeof fgrInitEditor === 'function' ) {
                 fgrInitEditor();
             }
+        } )();
+
+        // "Hinzufügen"-Button: eigene IP in die Whitelist-Textarea eintragen
+        ( function () {
+            var btn = document.getElementById( 'fgr-add-ip' );
+            var ta  = document.getElementById( 'fgr_ip_whitelist' );
+            var ip  = document.getElementById( 'fgr-current-ip' );
+            if ( ! btn || ! ta || ! ip ) { return; }
+            btn.addEventListener( 'click', function () {
+                var val    = ta.value.trim();
+                var ipText = ip.textContent.trim();
+                // Nur hinzufügen wenn noch nicht vorhanden
+                var lines = val ? val.split( '\n' ) : [];
+                if ( lines.indexOf( ipText ) === -1 ) {
+                    ta.value = val ? val + '\n' + ipText : ipText;
+                }
+                btn.textContent = 'Hinzugefügt ✓';
+                btn.disabled    = true;
+            } );
         } )();
         </script>
         <?php
