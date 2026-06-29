@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  FGR Maintenance
  * Description:  Ein Plugin der Freien Gestalterischen Republik. Zeigt Besuchern eine Platzhalterseite (Under Construction oder Wartung). Eingeloggte Benutzer sehen die Website normal.
- * Version:      1.0.0
+ * Version:      1.1.0
  * Author:       Freie Gestalterische Republik
  * Author URI:   https://fgr.design
  * License:      GPL-2.0-or-later
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'FGR_MAINTENANCE_VERSION', '1.0.0' );
+define( 'FGR_MAINTENANCE_VERSION', '1.1.0' );
 
 // ── MU-Plugin-Sync ────────────────────────────────────────────────────────────
 // Installiert/aktualisiert das MU-Plugin von GitHub (function_exists-Guard: MU-Plugin definiert dieselbe Funktion)
@@ -159,36 +159,54 @@ function fgr_maintenance_render( array $opts ): void {
         exit;
     }
 
-    // Vorlage 1 & 2: einfache weiße Seite
-    $text = ( 'wartung' === $template ) ? 'Wartungsarbeiten' : 'hier entsteht eine neue Webseite';
+    // Vorlage 1 & 2: FGR-Design (lila, mit Logo)
+    if ( 'wartung' === $template ) {
+        $title = 'Webseiten-Wartung';
+        $h1    = 'Wir sind gleich zurück!';
+        $p     = 'Diese Webseite wird gerade gewartet. Bitte schau in Kürze noch einmal vorbei. Vielen Dank für deine Geduld!';
+    } else {
+        $title = 'Info Webseite';
+        $h1    = 'Hier entsteht etwas Neues!';
+        $p     = 'Diese Webseite wird gerade entwickelt. Schauen Sie bald wieder vorbei – es lohnt sich!';
+    }
 
-    ?><!DOCTYPE html>
-<html lang="de">
+    ?><!doctype html>
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?php echo esc_html( $text ); ?></title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
-            background: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .fgr-msg {
-            text-align: center;
-            color: #333;
-            font-size: 1.5rem;
-            font-weight: 300;
-            letter-spacing: 0.02em;
-        }
-    </style>
+<meta charset="UTF-8">
+<title><?php echo esc_html( $title ); ?></title>
+<style>
+html,body{margin:0;padding:0}
+body{background-color:#5c1bdb;color:#fff;font-family:Helvetica,Arial,sans-serif;display:flex;align-items:center;align-content:center;justify-content:center;min-height:100vh;box-sizing:border-box;padding:30px}
+div.info{width:100%;max-width:675px;padding-bottom:75px}
+#powered_by{position:absolute;right:50px;bottom:40px;width:130px;height:auto}
+#powered_by svg{width:100%;height:auto}
+h1{font-size:3.25rem;margin:0 0 10px;font-weight:900}
+h1 span{font-weight:100}
+p{font-size:1.25rem;font-weight:300;line-height:1.5;margin:0}
+small{font-size:.8325rem;display:block;margin-bottom:6.5px}
+@media screen and (max-width:767px){
+    div.info{max-width:375px}
+    h1{font-size:2.5rem;margin:0}
+    p{font-size:1.125rem}
+    img{position:absolute;right:30px;bottom:30px;width:100px;height:100px}
+}
+</style>
 </head>
 <body>
-    <div class="fgr-msg"><?php echo esc_html( $text ); ?></div>
+    <div class="info">
+        <h1><?php echo esc_html( $h1 ); ?></h1>
+        <p><?php echo esc_html( $p ); ?></p>
+    </div>
+    <div id="powered_by">
+        <small>Eine Webseite von:</small>
+        <a href="https://fgr.design" target="_blank">
+            <svg xmlns="http://www.w3.org/2000/svg" width="283" height="143.393" viewBox="0 0 283 143.393">
+                <path d="M0,102V0H283V103H40.394L0,143.393Z" fill="#ffff6b"/>
+                <path d="M9.18-9.36V0h-6.8V-25.7h17.6v5.76H9.18v4.824H19.368v5.76Zm31.392.252h-4.1v-5.58H46.944v11.7a15.869,15.869,0,0,1-5.058,2.7,19.045,19.045,0,0,1-5.958.936Q29.88.648,26.6-2.826t-3.276-9.882a16.636,16.636,0,0,1,1.512-7.4,10.516,10.516,0,0,1,4.32-4.662,13.339,13.339,0,0,1,6.66-1.584,11.658,11.658,0,0,1,7.362,2.2A9.376,9.376,0,0,1,46.656-18l-6.912.684a4.3,4.3,0,0,0-1.35-2.43,4.089,4.089,0,0,0-2.646-.774,4.473,4.473,0,0,0-3.96,1.89,10.239,10.239,0,0,0-1.3,5.742q0,4.032,1.44,5.868A5.5,5.5,0,0,0,36.54-5.184a8.471,8.471,0,0,0,4.032-.936ZM66.384,0,62.172-8.856H58.428V0H51.84V-25.7H61.992q5.04,0,7.65,2.07a7.279,7.279,0,0,1,2.61,6.066,9.324,9.324,0,0,1-.972,4.356,7.164,7.164,0,0,1-2.844,2.952L73.692,0ZM61.812-14.22a4.449,4.449,0,0,0,2.88-.756,2.932,2.932,0,0,0,.9-2.376,2.665,2.665,0,0,0-.99-2.286,5.02,5.02,0,0,0-3.006-.738H58.428v6.156ZM76.428,0V-6.876h6.264V0ZM87.48,0V-25.7H97.6q6.372,0,9.684,3.2t3.312,9.36q0,6.336-3.474,9.738T97.2,0Zm9.828-5.832q6.12,0,6.12-7.092a8.077,8.077,0,0,0-1.422-5.238,5.32,5.32,0,0,0-4.338-1.71H94.392v14.04Zm18,5.832V-25.7h18.4v5.688H122.04v4.1h10.944v5.688H122.04v4.536h12.42L133.884,0Zm30.636-10.44q-4.392-.828-6.39-2.7a6.711,6.711,0,0,1-2-5.148,7.126,7.126,0,0,1,2.682-5.976q2.682-2.088,7.65-2.088a12.684,12.684,0,0,1,7.6,2.016,7.834,7.834,0,0,1,3.168,5.832l-6.7.684a3.847,3.847,0,0,0-1.314-2.34,4.58,4.58,0,0,0-2.79-.72,4.867,4.867,0,0,0-2.556.558,1.809,1.809,0,0,0-.9,1.638,1.742,1.742,0,0,0,.684,1.44,5.174,5.174,0,0,0,2.2.828l3.492.684a12.535,12.535,0,0,1,6.318,2.754,6.823,6.823,0,0,1,2.034,5.2,7.435,7.435,0,0,1-2.808,6.246Q153.5.648,148.284.648q-5.256,0-8.1-2.286a9.012,9.012,0,0,1-3.132-6.822h6.876a3.766,3.766,0,0,0,1.35,2.7,5.294,5.294,0,0,0,3.258.864,4.907,4.907,0,0,0,2.736-.63,2.092,2.092,0,0,0,.936-1.854,1.938,1.938,0,0,0-.7-1.584,4.641,4.641,0,0,0-2.142-.828ZM163.3,0V-25.7h6.912V0Zm28.872-9.108h-4.1v-5.58H198.54v11.7a15.869,15.869,0,0,1-5.058,2.7,19.045,19.045,0,0,1-5.958.936q-6.048,0-9.324-3.474t-3.276-9.882a16.635,16.635,0,0,1,1.512-7.4,10.516,10.516,0,0,1,4.32-4.662,13.339,13.339,0,0,1,6.66-1.584,11.658,11.658,0,0,1,7.362,2.2A9.376,9.376,0,0,1,198.252-18l-6.912.684a4.3,4.3,0,0,0-1.35-2.43,4.089,4.089,0,0,0-2.646-.774,4.473,4.473,0,0,0-3.96,1.89,10.239,10.239,0,0,0-1.3,5.742q0,4.032,1.44,5.868a5.5,5.5,0,0,0,4.608,1.836,8.471,8.471,0,0,0,4.032-.936ZM219.24,0l-9.252-14.724V0h-6.552V-25.7h6.048l9.252,14.724V-25.7h6.552V0Z" transform="translate(28 64)"/>
+            </svg>
+        </a>
+    </div>
 </body>
 </html><?php
     exit;
