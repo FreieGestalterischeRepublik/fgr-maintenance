@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  FGR Maintenance
  * Description:  Ein Plugin der Freien Gestalterischen Republik. Zeigt Besuchern eine Platzhalterseite (Under Construction oder Wartung). Eingeloggte Benutzer sehen die Website normal.
- * Version:      1.4.1
+ * Version:      1.4.2
  * Author:       Freie Gestalterische Republik
  * Author URI:   https://fgr.design
  * License:      GPL-2.0-or-later
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'FGR_MAINTENANCE_VERSION', '1.4.1' );
+define( 'FGR_MAINTENANCE_VERSION', '1.4.2' );
 
 // Update-Checker: prüft GitHub-Releases auf neue Versionen
 require_once plugin_dir_path( __FILE__ ) . 'lib/plugin-update-checker/plugin-update-checker.php';
@@ -24,6 +24,32 @@ $fgr_maintenance_updater = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildU
 );
 $fgr_maintenance_updater->setBranch( 'main' );
 $fgr_maintenance_updater->getVcsApi()->enableReleaseAssets();
+
+// "Details anzeigen" und "Nach Update suchen" erscheinen in der Pluginliste auch wenn ein Update verfügbar ist.
+// PUC überspringt "Details anzeigen" wenn WordPress einen slug in plugin_data setzt (passiert bei erkanntem Update).
+add_filter( 'plugin_row_meta', function ( array $links, string $plugin_file ): array {
+    if ( plugin_basename( __FILE__ ) !== $plugin_file || ! current_user_can( 'update_plugins' ) ) {
+        return $links;
+    }
+    $has_details = false;
+    $has_check   = false;
+    foreach ( $links as $link ) {
+        if ( strpos( $link, 'open-plugin-details-modal' ) !== false ) $has_details = true;
+        if ( strpos( $link, 'puc_check_for_updates' )     !== false ) $has_check   = true;
+    }
+    if ( ! $has_details ) {
+        $url     = network_admin_url( 'plugin-install.php?tab=plugin-information&plugin=fgr-maintenance&TB_iframe=true&width=600&height=550' );
+        $links[] = '<a href="' . esc_url( $url ) . '" class="thickbox open-plugin-details-modal">Details anzeigen</a>';
+    }
+    if ( ! $has_check ) {
+        $url     = wp_nonce_url(
+            add_query_arg( [ 'puc_check_for_updates' => 1, 'puc_slug' => 'fgr-maintenance' ], self_admin_url( 'plugins.php' ) ),
+            'puc_check_for_updates'
+        );
+        $links[] = '<a href="' . esc_url( $url ) . '">Nach Update suchen</a>';
+    }
+    return $links;
+}, 20, 2 );
 
 // ── MU-Plugin-Sync ────────────────────────────────────────────────────────────
 // Installiert/aktualisiert das MU-Plugin von GitHub (function_exists-Guard: MU-Plugin definiert dieselbe Funktion)
