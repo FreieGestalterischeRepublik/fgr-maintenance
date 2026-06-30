@@ -2,18 +2,18 @@
 /**
  * Plugin Name:  FGR Maintenance
  * Description:  Ein Plugin der Freien Gestalterischen Republik. Zeigt Besuchern eine Platzhalterseite (Under Construction oder Wartung). Eingeloggte Benutzer sehen die Website normal.
- * Version:      1.3.0
+ * Version:      1.4.0
  * Author:       Freie Gestalterische Republik
  * Author URI:   https://fgr.design
  * License:      GPL-2.0-or-later
- * Requires PHP: 8.0
+ * Requires PHP: 7.4
  * Requires at least: 6.0
  * Text Domain:  fgr-maintenance
  */
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'FGR_MAINTENANCE_VERSION', '1.3.0' );
+define( 'FGR_MAINTENANCE_VERSION', '1.4.0' );
 
 // Update-Checker: prüft GitHub-Releases auf neue Versionen
 require_once plugin_dir_path( __FILE__ ) . 'lib/plugin-update-checker/plugin-update-checker.php';
@@ -95,7 +95,7 @@ add_action( 'upgrader_process_complete', function ( $upgrader, array $hook_extra
 define( 'FGR_MAINTENANCE_BASENAME', plugin_basename( __FILE__ ) );
 
 // Warnung wenn Plugin im falschen Ordner installiert ist
-if ( is_admin() && str_ends_with( untrailingslashit( plugin_dir_path( __FILE__ ) ), '-main' ) ) {
+if ( is_admin() && substr( untrailingslashit( plugin_dir_path( __FILE__ ) ), -5 ) === '-main' ) {
     add_action( 'admin_notices', function () {
         echo '<div class="notice notice-error"><p>'
             . '<strong>FGR Maintenance:</strong> Das Plugin ist im falschen Ordner installiert '
@@ -135,10 +135,10 @@ function fgr_maintenance_intercept(): void {
     $request_path = (string) parse_url( $request_uri, PHP_URL_PATH );
 
     // REST API durchlassen
-    if ( str_contains( $request_uri, '/wp-json/' ) ) { return; }
+    if ( strpos( $request_uri, '/wp-json/' ) !== false ) { return; }
 
     // wp-login.php durchlassen (Fallback, wenn FGR Hide Login nicht aktiv ist)
-    if ( str_contains( $request_uri, 'wp-login.php' ) ) { return; }
+    if ( strpos( $request_uri, 'wp-login.php' ) !== false ) { return; }
 
     // FGR Hide Login: Custom-Login-Slug direkt aus der DB lesen.
     // Funktioniert unabhängig davon, ob das Plugin aktiv ist.
