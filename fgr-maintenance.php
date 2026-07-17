@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  FGR Maintenance
  * Description:  Ein Plugin der Freien Gestalterischen Republik. Zeigt Besuchern eine Platzhalterseite (Under Construction oder Wartung). Eingeloggte Benutzer sehen die Website normal.
- * Version:      1.4.2
+ * Version:      1.5.0
  * Author:       Freie Gestalterische Republik
  * Author URI:   https://fgr.design
  * License:      GPL-2.0-or-later
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'FGR_MAINTENANCE_VERSION', '1.4.2' );
+define( 'FGR_MAINTENANCE_VERSION', '1.5.0' );
 
 // Update-Checker: prüft GitHub-Releases auf neue Versionen
 require_once plugin_dir_path( __FILE__ ) . 'lib/plugin-update-checker/plugin-update-checker.php';
@@ -259,6 +259,12 @@ function fgr_maintenance_render( array $opts ): void {
 
     $template = $opts['template'] ?? 'aufbau';
 
+    // Vorlage 4: Logo & Text
+    if ( 'logo' === $template ) {
+        fgr_maintenance_render_logo( $opts );
+        exit;
+    }
+
     // Vorlage 3: eigenes HTML
     if ( 'custom' === $template && ! empty( $opts['custom_html'] ) ) {
         echo $opts['custom_html']; // phpcs:ignore -- beim Speichern sanitiert
@@ -316,4 +322,104 @@ small{font-size:.8325rem;display:block;margin-bottom:6.5px}
 </body>
 </html><?php
     exit;
+}
+
+function fgr_maintenance_render_logo( array $opts ): void {
+    // Erlaubte Schriftfamilien (analog zu get_allowed_fonts() in der Settings-Klasse)
+    $allowed_fonts = [
+        'system-ui,-apple-system,BlinkMacSystemFont,sans-serif' => 'System-Standard',
+        'Arial,Helvetica,sans-serif'                             => 'Arial',
+        'Verdana,Geneva,sans-serif'                              => 'Verdana',
+        'Tahoma,Geneva,sans-serif'                               => 'Tahoma',
+        '"Trebuchet MS",Helvetica,sans-serif'                    => 'Trebuchet MS',
+        '"Gill Sans","Gill Sans MT",Calibri,sans-serif'          => 'Gill Sans',
+        'Georgia,"Times New Roman",serif'                        => 'Georgia',
+        '"Times New Roman",Times,serif'                          => 'Times New Roman',
+        '"Palatino Linotype",Palatino,"Book Antiqua",serif'      => 'Palatino',
+    ];
+
+    // Logo-URL ermitteln
+    $logo_id  = absint( $opts['logo_id'] ?? 0 );
+    $logo_url = '';
+    if ( $logo_id > 0 ) {
+        $logo_url = wp_get_attachment_image_url( $logo_id, 'full' );
+        if ( ! $logo_url ) {
+            $logo_url = '';
+        }
+    }
+
+    // Wenn kein Logo vorhanden → leere weiße Seite
+    if ( '' === $logo_url ) {
+        echo '<!doctype html><html><head><meta charset="UTF-8"><title></title></head><body style="margin:0;background:#fff;"></body></html>';
+        return;
+    }
+
+    // Werte aus Optionen lesen
+    $logo_text      = $opts['logo_text']      ?? '';
+    $logo_max_width = absint( $opts['logo_max_width'] ?? 300 ) ?: 300;
+    $text_max_width = absint( $opts['text_max_width']  ?? 500 ) ?: 500;
+    $logo_gap       = absint( $opts['logo_gap']        ?? 32  );
+    $bg_color       = $opts['bg_color']    ?? '#ffffff';
+    $text_color     = $opts['text_color']  ?? '#000000';
+
+    // Schriftfamilie validieren (CSS-Injection verhindern)
+    $font_family_raw = $opts['font_family'] ?? '';
+    if ( array_key_exists( $font_family_raw, $allowed_fonts ) ) {
+        $font_family = $font_family_raw;
+    } else {
+        reset( $allowed_fonts );
+        $font_family = key( $allowed_fonts );
+    }
+
+    ?><!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title></title>
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+}
+body {
+    background-color: <?php echo esc_html( $bg_color ); ?>;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    box-sizing: border-box;
+    padding: 40px 20px;
+}
+.fgr-logo-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+img.fgr-logo {
+    max-width: <?php echo esc_html( $logo_max_width ); ?>px;
+    width: 100%;
+    height: auto;
+    display: block;
+}
+p.fgr-logo-text {
+    max-width: <?php echo esc_html( $text_max_width ); ?>px;
+    margin: <?php echo esc_html( $logo_gap ); ?>px auto 0;
+    color: <?php echo esc_html( $text_color ); ?>;
+    font-family: <?php echo esc_html( $font_family ); ?>;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+</style>
+</head>
+<body>
+    <div class="fgr-logo-wrap">
+        <img class="fgr-logo" src="<?php echo esc_url( $logo_url ); ?>" alt="">
+        <?php if ( '' !== $logo_text ) : ?>
+        <p class="fgr-logo-text"><?php echo esc_html( $logo_text ); ?></p>
+        <?php endif; ?>
+    </div>
+</body>
+</html><?php
 }

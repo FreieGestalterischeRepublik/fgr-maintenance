@@ -31,10 +31,24 @@ class FGR_Maintenance_Settings {
         );
     }
 
+    private function get_allowed_fonts(): array {
+        return [
+            'system-ui,-apple-system,BlinkMacSystemFont,sans-serif' => 'System-Standard',
+            'Arial,Helvetica,sans-serif'                             => 'Arial',
+            'Verdana,Geneva,sans-serif'                              => 'Verdana',
+            'Tahoma,Geneva,sans-serif'                               => 'Tahoma',
+            '"Trebuchet MS",Helvetica,sans-serif'                    => 'Trebuchet MS',
+            '"Gill Sans","Gill Sans MT",Calibri,sans-serif'          => 'Gill Sans',
+            'Georgia,"Times New Roman",serif'                        => 'Georgia',
+            '"Times New Roman",Times,serif'                          => 'Times New Roman',
+            '"Palatino Linotype",Palatino,"Book Antiqua",serif'      => 'Palatino',
+        ];
+    }
+
     public function sanitize_options( $input ): array {
         $clean             = [];
         $clean['active']   = ! empty( $input['active'] );
-        $clean['template'] = in_array( $input['template'] ?? '', [ 'aufbau', 'wartung', 'custom' ], true )
+        $clean['template'] = in_array( $input['template'] ?? '', [ 'aufbau', 'wartung', 'custom', 'logo' ], true )
             ? $input['template']
             : 'aufbau';
 
@@ -58,12 +72,33 @@ class FGR_Maintenance_Settings {
         $lines = preg_split( '/\r\n|\r|\n/', (string) ( $input['ip_whitelist'] ?? '' ) );
         $clean['ip_whitelist'] = implode( "\n", array_map( 'sanitize_text_field', $lines ) );
 
+        // Vorlage 4: Logo & Text
+        $clean['logo_id']        = absint( $input['logo_id'] ?? 0 );
+        $clean['logo_text']      = sanitize_text_field( $input['logo_text'] ?? '' );
+        $clean['logo_max_width'] = absint( $input['logo_max_width'] ?? 300 ) ?: 300;
+        $clean['text_max_width'] = absint( $input['text_max_width']  ?? 500 ) ?: 500;
+        $clean['logo_gap']       = absint( $input['logo_gap']        ?? 32  );
+        $clean['bg_color']       = sanitize_hex_color( $input['bg_color']   ?? '#ffffff' ) ?: '#ffffff';
+        $clean['text_color']     = sanitize_hex_color( $input['text_color'] ?? '#000000' ) ?: '#000000';
+
+        $allowed_fonts = $this->get_allowed_fonts();
+        $font_raw      = $input['font_family'] ?? '';
+        if ( array_key_exists( $font_raw, $allowed_fonts ) ) {
+            $clean['font_family'] = $font_raw;
+        } else {
+            reset( $allowed_fonts );
+            $clean['font_family'] = key( $allowed_fonts );
+        }
+
         return $clean;
     }
 
     public function enqueue_editor( string $hook ): void {
         // Hook-Name für Subseiten unter fgr-plugins: fgr-plugins_page_fgr-maintenance
         if ( 'fgr-plugins_page_fgr-maintenance' !== $hook ) { return; }
+
+        // Media Library für Logo-Upload laden
+        wp_enqueue_media();
 
         // WordPress-eigenen CodeMirror-Editor laden (HTML-Modus)
         $settings = wp_enqueue_code_editor( [ 'type' => 'text/html' ] );
@@ -103,6 +138,22 @@ class FGR_Maintenance_Settings {
         $secret         = $opts['secret'] ?? 'fgr-secret';
         $ip_whitelist   = $opts['ip_whitelist'] ?? '';
         $current_ip     = function_exists( 'fgr_maintenance_get_ip' ) ? fgr_maintenance_get_ip() : '';
+
+        // Vorlage 4: Logo-Werte
+        $logo_id        = absint( $opts['logo_id'] ?? 0 );
+        $logo_url       = $logo_id > 0 ? wp_get_attachment_image_url( $logo_id, 'medium' ) : '';
+        $logo_text      = $opts['logo_text']      ?? '';
+        $logo_max_width = absint( $opts['logo_max_width'] ?? 300 ) ?: 300;
+        $text_max_width = absint( $opts['text_max_width']  ?? 500 ) ?: 500;
+        $logo_gap       = isset( $opts['logo_gap'] ) ? absint( $opts['logo_gap'] ) : 32;
+        $bg_color       = $opts['bg_color']    ?? '#ffffff';
+        $text_color     = $opts['text_color']  ?? '#000000';
+        $font_family    = $opts['font_family'] ?? '';
+        $allowed_fonts  = $this->get_allowed_fonts();
+        if ( ! array_key_exists( $font_family, $allowed_fonts ) ) {
+            reset( $allowed_fonts );
+            $font_family = key( $allowed_fonts );
+        }
         ?>
         <div class="wrap">
             <h1>
@@ -149,11 +200,17 @@ class FGR_Maintenance_Settings {
                                     <br>
                                     <span style="color:#646970;margin-left:20px;">Weiße Seite, zentrierter Text: „Wartungsarbeiten"</span>
                                 </label>
-                                <label style="display:block;">
+                                <label style="display:block;margin-bottom:14px;">
                                     <input type="radio" name="fgr_maintenance[template]" value="custom" <?php checked( $template, 'custom' ); ?>>
                                     <strong>Vorlage 3: Eigenes HTML</strong>
                                     <br>
                                     <span style="color:#646970;margin-left:20px;">Vollständig selbst gestaltete Seite</span>
+                                </label>
+                                <label style="display:block;">
+                                    <input type="radio" name="fgr_maintenance[template]" value="logo" <?php checked( $template, 'logo' ); ?>>
+                                    <strong>Vorlage 4: Logo &amp; Text</strong>
+                                    <br>
+                                    <span style="color:#646970;margin-left:20px;">Eigenes Logo, optionaler Text, freie Farb- und Schriftgestaltung</span>
                                 </label>
                             </fieldset>
                         </td>
@@ -172,6 +229,91 @@ class FGR_Maintenance_Settings {
                                 Vollständiges HTML-Dokument (<code>&lt;!DOCTYPE html&gt;</code> …).
                                 <code>&lt;script&gt;</code> und <code>on*</code>-Event-Handler werden beim Speichern automatisch entfernt.
                             </p>
+                        </td>
+                    </tr>
+
+                    <?php $logo_hidden = ( 'logo' !== $template ) ? 'style="display:none"' : ''; ?>
+
+                    <tr class="fgr-logo-setting" <?php echo $logo_hidden; // phpcs:ignore -- kein XSS ?>>
+                        <th scope="row">Logo</th>
+                        <td>
+                            <input type="hidden" id="fgr_logo_id" name="fgr_maintenance[logo_id]" value="<?php echo esc_attr( $logo_id ); ?>">
+                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                <button type="button" class="button" id="fgr-logo-select">Logo auswählen</button>
+                                <button type="button" class="button" id="fgr-logo-remove" <?php echo $logo_url ? '' : 'style="display:none"'; ?>>Entfernen</button>
+                            </div>
+                            <?php if ( $logo_url ) : ?>
+                            <img id="fgr-logo-preview" src="<?php echo esc_url( $logo_url ); ?>"
+                                 style="margin-top:10px;max-width:200px;max-height:120px;display:block;border:1px solid #ddd;padding:4px;background:#f6f7f7;">
+                            <?php else : ?>
+                            <img id="fgr-logo-preview" src="" style="margin-top:10px;max-width:200px;max-height:120px;display:none;border:1px solid #ddd;padding:4px;background:#f6f7f7;">
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+
+                    <tr class="fgr-logo-setting" <?php echo $logo_hidden; // phpcs:ignore ?>>
+                        <th scope="row">Text unter Logo</th>
+                        <td>
+                            <input type="text" name="fgr_maintenance[logo_text]"
+                                   value="<?php echo esc_attr( $logo_text ); ?>"
+                                   style="width:100%;"
+                                   placeholder="Optionaler Text unter dem Logo">
+                            <p class="description">Leer lassen = kein Text.</p>
+                        </td>
+                    </tr>
+
+                    <tr class="fgr-logo-setting" <?php echo $logo_hidden; // phpcs:ignore ?>>
+                        <th scope="row">Abmessungen</th>
+                        <td>
+                            <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+                                <label>
+                                    Logo max-Breite (px)<br>
+                                    <input type="number" name="fgr_maintenance[logo_max_width]"
+                                           value="<?php echo esc_attr( $logo_max_width ); ?>"
+                                           min="1" max="2000" style="width:90px;">
+                                </label>
+                                <label>
+                                    Text max-Breite (px)<br>
+                                    <input type="number" name="fgr_maintenance[text_max_width]"
+                                           value="<?php echo esc_attr( $text_max_width ); ?>"
+                                           min="1" max="2000" style="width:90px;">
+                                </label>
+                                <label>
+                                    Abstand Logo–Text (px)<br>
+                                    <input type="number" name="fgr_maintenance[logo_gap]"
+                                           value="<?php echo esc_attr( $logo_gap ); ?>"
+                                           min="0" max="500" style="width:90px;">
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr class="fgr-logo-setting" <?php echo $logo_hidden; // phpcs:ignore ?>>
+                        <th scope="row">Design</th>
+                        <td>
+                            <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;">
+                                <label>
+                                    Hintergrundfarbe<br>
+                                    <input type="color" name="fgr_maintenance[bg_color]"
+                                           value="<?php echo esc_attr( $bg_color ); ?>">
+                                </label>
+                                <label>
+                                    Textfarbe<br>
+                                    <input type="color" name="fgr_maintenance[text_color]"
+                                           value="<?php echo esc_attr( $text_color ); ?>">
+                                </label>
+                                <label>
+                                    Schrift<br>
+                                    <select name="fgr_maintenance[font_family]">
+                                        <?php foreach ( $allowed_fonts as $value => $label ) : ?>
+                                        <option value="<?php echo esc_attr( $value ); ?>" <?php selected( $font_family, $value ); ?>
+                                                style="font-family:<?php echo esc_attr( $value ); ?>;">
+                                            <?php echo esc_html( $label ); ?>
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+                            </div>
                         </td>
                     </tr>
 
@@ -224,22 +366,76 @@ class FGR_Maintenance_Settings {
 
         <script>
         ( function () {
-            var radios = document.querySelectorAll( 'input[name="fgr_maintenance[template]"]' );
-            var row    = document.getElementById( 'fgr_custom_row' );
-            if ( ! row ) { return; }
-            radios.forEach( function ( r ) {
-                r.addEventListener( 'change', function () {
-                    var show = ( this.value === 'custom' );
-                    row.style.display = show ? '' : 'none';
-                    // Editor erst initialisieren/refreshen wenn sichtbar
-                    if ( show && typeof fgrInitEditor === 'function' ) {
+            var radios    = document.querySelectorAll( 'input[name="fgr_maintenance[template]"]' );
+            var customRow = document.getElementById( 'fgr_custom_row' );
+            var logoRows  = document.querySelectorAll( '.fgr-logo-setting' );
+
+            function updateRows( val ) {
+                if ( customRow ) {
+                    customRow.style.display = ( val === 'custom' ) ? '' : 'none';
+                    if ( val === 'custom' && typeof fgrInitEditor === 'function' ) {
                         fgrInitEditor();
                     }
+                }
+                logoRows.forEach( function ( row ) {
+                    row.style.display = ( val === 'logo' ) ? '' : 'none';
+                } );
+            }
+
+            radios.forEach( function ( r ) {
+                r.addEventListener( 'change', function () {
+                    updateRows( this.value );
                 } );
             } );
+
             // Seite lädt mit Vorlage 3 bereits gewählt → sofort initialisieren
-            if ( row.style.display !== 'none' && typeof fgrInitEditor === 'function' ) {
+            if ( customRow && customRow.style.display !== 'none' && typeof fgrInitEditor === 'function' ) {
                 fgrInitEditor();
+            }
+        } )();
+
+        // wp.media Logo-Uploader
+        ( function () {
+            var selectBtn  = document.getElementById( 'fgr-logo-select' );
+            var removeBtn  = document.getElementById( 'fgr-logo-remove' );
+            var logoIdInput = document.getElementById( 'fgr_logo_id' );
+            var preview    = document.getElementById( 'fgr-logo-preview' );
+            if ( ! selectBtn ) { return; }
+
+            var mediaFrame;
+
+            selectBtn.addEventListener( 'click', function ( e ) {
+                e.preventDefault();
+                if ( mediaFrame ) {
+                    mediaFrame.open();
+                    return;
+                }
+                mediaFrame = wp.media( {
+                    title:    'Logo auswählen',
+                    button:   { text: 'Logo verwenden' },
+                    multiple: false,
+                    library:  { type: 'image' },
+                } );
+                mediaFrame.on( 'select', function () {
+                    var attachment = mediaFrame.state().get( 'selection' ).first().toJSON();
+                    logoIdInput.value    = attachment.id;
+                    preview.src          = attachment.sizes && attachment.sizes.medium
+                        ? attachment.sizes.medium.url
+                        : attachment.url;
+                    preview.style.display = 'block';
+                    if ( removeBtn ) { removeBtn.style.display = ''; }
+                } );
+                mediaFrame.open();
+            } );
+
+            if ( removeBtn ) {
+                removeBtn.addEventListener( 'click', function ( e ) {
+                    e.preventDefault();
+                    logoIdInput.value     = '';
+                    preview.src           = '';
+                    preview.style.display = 'none';
+                    removeBtn.style.display = 'none';
+                } );
             }
         } )();
 
