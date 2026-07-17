@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  FGR Maintenance
  * Description:  Ein Plugin der Freien Gestalterischen Republik. Zeigt Besuchern eine Platzhalterseite (Under Construction oder Wartung). Eingeloggte Benutzer sehen die Website normal.
- * Version:      1.5.0
+ * Version:      1.5.1
  * Author:       Freie Gestalterische Republik
  * Author URI:   https://fgr.design
  * License:      GPL-2.0-or-later
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'FGR_MAINTENANCE_VERSION', '1.5.0' );
+define( 'FGR_MAINTENANCE_VERSION', '1.5.1' );
 
 // Update-Checker: prüft GitHub-Releases auf neue Versionen
 require_once plugin_dir_path( __FILE__ ) . 'lib/plugin-update-checker/plugin-update-checker.php';
@@ -392,6 +392,7 @@ body {
     padding: 40px 20px;
 }
 .fgr-logo-wrap {
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -405,6 +406,8 @@ img.fgr-logo {
 }
 p.fgr-logo-text {
     max-width: <?php echo esc_html( $text_max_width ); ?>px;
+    width: 100%;
+    box-sizing: border-box;
     margin: <?php echo esc_html( $logo_gap ); ?>px auto 0;
     color: <?php echo esc_html( $text_color ); ?>;
     font-family: <?php echo esc_html( $font_family ); ?>;
