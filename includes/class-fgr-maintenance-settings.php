@@ -191,14 +191,10 @@ class FGR_Maintenance_Settings {
                                 <label style="display:block;margin-bottom:14px;">
                                     <input type="radio" name="fgr_maintenance[template]" value="aufbau" <?php checked( $template, 'aufbau' ); ?>>
                                     <strong>Vorlage 1: Website in Aufbau</strong>
-                                    <br>
-                                    <span style="color:#646970;margin-left:20px;">Weiße Seite, zentrierter Text: „hier entsteht eine neue Webseite"</span>
                                 </label>
                                 <label style="display:block;margin-bottom:14px;">
                                     <input type="radio" name="fgr_maintenance[template]" value="wartung" <?php checked( $template, 'wartung' ); ?>>
                                     <strong>Vorlage 2: Wartungsarbeiten</strong>
-                                    <br>
-                                    <span style="color:#646970;margin-left:20px;">Weiße Seite, zentrierter Text: „Wartungsarbeiten"</span>
                                 </label>
                                 <label style="display:block;margin-bottom:14px;">
                                     <input type="radio" name="fgr_maintenance[template]" value="custom" <?php checked( $template, 'custom' ); ?>>
