@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  FGR Maintenance
  * Description:  Ein Plugin der Freien Gestalterischen Republik. Zeigt Besuchern eine Platzhalterseite (Under Construction oder Wartung). Eingeloggte Benutzer sehen die Website normal.
- * Version:      1.5.2
+ * Version:      1.5.3
  * Author:       Freie Gestalterische Republik
  * Author URI:   https://fgr.design
  * License:      GPL-2.0-or-later
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'FGR_MAINTENANCE_VERSION', '1.5.2' );
+define( 'FGR_MAINTENANCE_VERSION', '1.5.3' );
 
 // Update-Checker: prüft GitHub-Releases auf neue Versionen
 require_once plugin_dir_path( __FILE__ ) . 'lib/plugin-update-checker/plugin-update-checker.php';
@@ -56,7 +56,21 @@ add_filter( 'plugin_row_meta', function ( array $links, string $plugin_file ): a
 
 if ( ! function_exists( 'fgr_mu_sync' ) ) {
     function fgr_mu_sync(): void {
-        $url      = 'https://raw.githubusercontent.com/FreieGestalterischeRepublik/fgr-plugin-overview/main/fgr-plugin-overview.php';
+        // An den jeweils aktuellen GitHub-Release gepinnt statt an den beweglichen main-Branch:
+        // ein Release ist ein bewusster, protokollierter Veröffentlichungsschritt, kein einzelner Push.
+        $release = wp_remote_get(
+            'https://api.github.com/repos/FreieGestalterischeRepublik/fgr-plugin-overview/releases/latest',
+            [
+                'timeout'    => 10,
+                'user-agent' => 'WordPress/' . get_bloginfo( 'version' ) . '; ' . home_url(),
+            ]
+        );
+        if ( is_wp_error( $release ) || 200 !== wp_remote_retrieve_response_code( $release ) ) return;
+        $release_data = json_decode( wp_remote_retrieve_body( $release ), true );
+        $tag          = (string) ( $release_data['tag_name'] ?? '' );
+        if ( '' === $tag || ! preg_match( '/^v?[\d.]+$/', $tag ) ) return;
+
+        $url      = 'https://raw.githubusercontent.com/FreieGestalterischeRepublik/fgr-plugin-overview/' . rawurlencode( $tag ) . '/fgr-plugin-overview.php';
         $dest_dir = WPMU_PLUGIN_DIR;
         $dest     = $dest_dir . '/fgr-plugin-overview.php';
 
@@ -162,11 +176,15 @@ function fgr_maintenance_intercept(): void {
         : '';
     $request_path = (string) parse_url( $request_uri, PHP_URL_PATH );
 
-    // REST API durchlassen
-    if ( strpos( $request_uri, '/wp-json/' ) !== false ) { return; }
+    // REST API durchlassen (Präfix-Vergleich auf dem reinen Pfad, nicht Substring auf der ganzen URL —
+    // sonst würde z.B. ?x=/wp-json/ an einer beliebigen Seite den Wartungsmodus umgehen)
+    $rest_prefix = rest_get_url_prefix();
+    if ( strpos( ltrim( $request_path, '/' ), ltrim( $rest_prefix, '/' ) ) === 0 ) { return; }
 
-    // wp-login.php durchlassen (Fallback, wenn FGR Hide Login nicht aktiv ist)
-    if ( strpos( $request_uri, 'wp-login.php' ) !== false ) { return; }
+    // wp-login.php durchlassen (Fallback, wenn FGR Hide Login nicht aktiv ist).
+    // Exakter Dateiname-Vergleich, nicht Substring auf der ganzen URL (inkl. Query-String) —
+    // sonst würde z.B. ?x=wp-login.php an einer beliebigen Seite den Wartungsmodus umgehen.
+    if ( basename( $request_path ) === 'wp-login.php' ) { return; }
 
     // FGR Hide Login: Custom-Login-Slug direkt aus der DB lesen.
     // Funktioniert unabhängig davon, ob das Plugin aktiv ist.
@@ -227,17 +245,24 @@ function fgr_maintenance_intercept(): void {
     fgr_maintenance_render( $opts );
 }
 
-// Beste Annäherung an die echte Client-IP (analog zu rsucGetIPAddress)
+// Beste Annäherung an die echte Client-IP (analog zu rsucGetIPAddress).
+// HTTP_CLIENT_IP und X-Forwarded-For werden vom Besucher selbst mitgeschickt und sind
+// daher fälschbar — sie würden sonst die IP-Whitelist aushebeln. Sie werden nur
+// berücksichtigt, wenn ausdrücklich ein vertrauenswürdiger Reverse-Proxy per Filter
+// bestätigt wurde; ansonsten zählt ausschließlich REMOTE_ADDR (vom Webserver gesetzt).
 function fgr_maintenance_get_ip(): string {
     $candidates = [];
-    if ( ! empty( $_SERVER['HTTP_CLIENT_IP'] ) ) {
-        $candidates[] = sanitize_text_field( wp_unslash( $_SERVER['HTTP_CLIENT_IP'] ) );
-    }
-    if ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
-        $xff   = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) );
-        $first = trim( strtok( $xff, ',' ) );
-        if ( $first !== '' ) {
-            $candidates[] = $first;
+
+    if ( apply_filters( 'fgr_maintenance_trust_proxy_headers', false ) ) {
+        if ( ! empty( $_SERVER['HTTP_CLIENT_IP'] ) ) {
+            $candidates[] = sanitize_text_field( wp_unslash( $_SERVER['HTTP_CLIENT_IP'] ) );
+        }
+        if ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+            $xff   = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) );
+            $first = trim( strtok( $xff, ',' ) );
+            if ( $first !== '' ) {
+                $candidates[] = $first;
+            }
         }
     }
     if ( ! empty( $_SERVER['REMOTE_ADDR'] ) ) {

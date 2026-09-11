@@ -59,8 +59,26 @@ class FGR_Maintenance_Settings {
         $html = preg_replace( '#\son\w+\s*=\s*"[^"]*"#i', '', $html );
         $html = preg_replace( "#\son\w+\s*=\s*'[^']*'#i", '', $html );
         $html = preg_replace( '#\son\w+\s*=\s*[^\s>]+#i', '', $html );
-        $html = preg_replace( '#(href|src|action|formaction)\s*=\s*"\s*javascript:[^"]*"#i', '$1=""', $html );
-        $html = preg_replace( "#(href|src|action|formaction)\s*=\s*'\s*javascript:[^']*'#i", '$1=""', $html );
+
+        // Gefährliche URL-Schemes (href/src/action/formaction/content) neutralisieren.
+        // Browser ignorieren eingebettete Steuerzeichen/Leerzeichen beim Erkennen des Schemes
+        // (z.B. "java\tscript:"), deshalb wird vor dem Vergleich innerhalb des Attributwerts
+        // bereinigt — der restliche HTML-Code bleibt unangetastet.
+        $html = preg_replace_callback(
+            '#(href|src|action|formaction|content)(\s*=\s*)(["\'])(.*?)\3#is',
+            function ( array $m ): string {
+                [ , $attr, $eq, $quote, $value ] = $m;
+                $stripped = preg_replace( '/[\x00-\x1F\s]+/', '', $value );
+                if ( preg_match( '/^(javascript|vbscript):/i', (string) $stripped )
+                    || preg_match( '#^data:(?!image/|audio/|video/|font/)#i', (string) $stripped )
+                ) {
+                    return $attr . $eq . $quote . $quote;
+                }
+                return $m[0];
+            },
+            $html
+        );
+
         $clean['custom_html'] = $html;
 
         // Secret-Link
@@ -165,6 +183,12 @@ class FGR_Maintenance_Settings {
             <?php if ( $active ) : ?>
             <div class="notice notice-warning" style="border-left-color:#d63638;">
                 <p><strong>Maintenance ist aktiv</strong> – Besucher sehen aktuell die Platzhalterseite.</p>
+            </div>
+            <?php endif; ?>
+
+            <?php if ( $secret_enabled && 'fgr-secret' === $secret ) : ?>
+            <div class="notice notice-warning">
+                <p><strong>Hinweis:</strong> Der Secret-Link verwendet noch den Standardwert <code>fgr-secret</code>. Da dieser Wert öffentlich im Plugin-Quellcode steht, sollte er vor Verwendung auf ein eigenes, schwer zu erratendes Wort geändert werden.</p>
             </div>
             <?php endif; ?>
 
