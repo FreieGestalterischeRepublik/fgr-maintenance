@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  FGR Maintenance
  * Description:  Ein Plugin der Freien Gestalterischen Republik. Zeigt Besuchern eine Platzhalterseite (Under Construction oder Wartung). Eingeloggte Benutzer sehen die Website normal.
- * Version:      1.5.3
+ * Version:      1.5.4
  * Author:       Freie Gestalterische Republik
  * Author URI:   https://fgr.design
  * License:      GPL-2.0-or-later
@@ -13,17 +13,24 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'FGR_MAINTENANCE_VERSION', '1.5.3' );
+define( 'FGR_MAINTENANCE_VERSION', '1.5.4' );
 
 // Update-Checker: prüft GitHub-Releases auf neue Versionen
 require_once plugin_dir_path( __FILE__ ) . 'lib/plugin-update-checker/plugin-update-checker.php';
 $fgr_maintenance_updater = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
-    'https://github.com/FreieGestalterischeRepublik/fgr-maintenance/',
+    'https://fgr-plugins-api.fgr.design/fgr-maintenance.json',
     __FILE__,
     'fgr-maintenance'
 );
-$fgr_maintenance_updater->setBranch( 'main' );
-$fgr_maintenance_updater->getVcsApi()->enableReleaseAssets();
+
+// Auto-Update: WordPress' täglicher Update-Cron installiert neue Versionen
+// dieses Plugins automatisch, kein manueller Klick auf jeder Seite nötig.
+add_filter( 'auto_update_plugin', function ( $update, $item ) {
+    if ( isset( $item->slug ) && $item->slug === 'fgr-maintenance' ) {
+        return true;
+    }
+    return $update;
+}, 10, 2 );
 
 // "Details anzeigen" und "Nach Update suchen" erscheinen in der Pluginliste auch wenn ein Update verfügbar ist.
 // PUC überspringt "Details anzeigen" wenn WordPress einen slug in plugin_data setzt (passiert bei erkanntem Update).
