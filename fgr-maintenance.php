@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  FGR Maintenance
  * Description:  Ein Plugin der Freien Gestalterischen Republik. Zeigt Besuchern eine Platzhalterseite (Under Construction oder Wartung). Eingeloggte Benutzer sehen die Website normal.
- * Version:      1.5.4
+ * Version:      1.6.0
  * Author:       Freie Gestalterische Republik
  * Author URI:   https://fgr.design
  * License:      GPL-2.0-or-later
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'FGR_MAINTENANCE_VERSION', '1.5.4' );
+define( 'FGR_MAINTENANCE_VERSION', '1.6.0' );
 
 // Update-Checker: prüft GitHub-Releases auf neue Versionen
 require_once plugin_dir_path( __FILE__ ) . 'lib/plugin-update-checker/plugin-update-checker.php';
@@ -283,13 +283,44 @@ function fgr_maintenance_get_ip(): string {
     return '';
 }
 
+// Verhindert eine Endlosschleife, wenn das Weiterleitungsziel (versehentlich) auf die
+// gerade aufgerufene Seite der eigenen Domain zeigt (Host inkl. Port + Pfad, ohne Query-String).
+function fgr_maintenance_is_current_url( string $redirect_url ): bool {
+    $target_host = (string) parse_url( $redirect_url, PHP_URL_HOST );
+    if ( '' === $target_host ) { return false; }
+    $target_port = parse_url( $redirect_url, PHP_URL_PORT );
+    if ( $target_port ) { $target_host .= ':' . $target_port; }
+
+    $current_host = isset( $_SERVER['HTTP_HOST'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) : '';
+    if ( strcasecmp( $target_host, $current_host ) !== 0 ) { return false; }
+
+    $target_path  = untrailingslashit( (string) parse_url( $redirect_url, PHP_URL_PATH ) );
+    $request_uri  = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+    $current_path = untrailingslashit( (string) parse_url( $request_uri, PHP_URL_PATH ) );
+
+    return $target_path === $current_path;
+}
+
 function fgr_maintenance_render( array $opts ): void {
+    $template = $opts['template'] ?? 'aufbau';
+
+    // Vorlage 5: Weiterleitung (302, kein 503 – die Zielseite soll normal ausgeliefert werden)
+    if ( 'redirect' === $template ) {
+        $redirect_url = trim( (string) ( $opts['redirect_url'] ?? '' ) );
+        if ( '' !== $redirect_url && ! fgr_maintenance_is_current_url( $redirect_url ) ) {
+            nocache_headers();
+            wp_redirect( $redirect_url, 302 );
+            exit;
+        }
+        // Keine URL hinterlegt, oder Ziel = aktuell aufgerufene Seite (Endlosschleife vermeiden):
+        // nichts tun, Seite normal anzeigen statt kaputter Weiterleitung.
+        return;
+    }
+
     status_header( 503 );
     nocache_headers();
     header( 'Content-Type: text/html; charset=' . get_option( 'blog_charset', 'UTF-8' ) );
     header( 'Retry-After: 3600' );
-
-    $template = $opts['template'] ?? 'aufbau';
 
     // Vorlage 4: Logo & Text
     if ( 'logo' === $template ) {

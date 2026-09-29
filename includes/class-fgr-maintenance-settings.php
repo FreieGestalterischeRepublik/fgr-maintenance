@@ -48,7 +48,7 @@ class FGR_Maintenance_Settings {
     public function sanitize_options( $input ): array {
         $clean             = [];
         $clean['active']   = ! empty( $input['active'] );
-        $clean['template'] = in_array( $input['template'] ?? '', [ 'aufbau', 'wartung', 'custom', 'logo' ], true )
+        $clean['template'] = in_array( $input['template'] ?? '', [ 'aufbau', 'wartung', 'custom', 'logo', 'redirect' ], true )
             ? $input['template']
             : 'aufbau';
 
@@ -107,6 +107,9 @@ class FGR_Maintenance_Settings {
             reset( $allowed_fonts );
             $clean['font_family'] = key( $allowed_fonts );
         }
+
+        // Vorlage 5: Weiterleitung
+        $clean['redirect_url'] = esc_url_raw( trim( (string) ( $input['redirect_url'] ?? '' ) ) );
 
         return $clean;
     }
@@ -172,6 +175,9 @@ class FGR_Maintenance_Settings {
             reset( $allowed_fonts );
             $font_family = key( $allowed_fonts );
         }
+
+        // Vorlage 5: Weiterleitung
+        $redirect_url = $opts['redirect_url'] ?? '';
         ?>
         <div class="wrap">
             <h1>
@@ -226,13 +232,33 @@ class FGR_Maintenance_Settings {
                                     <br>
                                     <span style="color:#646970;margin-left:20px;">Vollständig selbst gestaltete Seite</span>
                                 </label>
-                                <label style="display:block;">
+                                <label style="display:block;margin-bottom:14px;">
                                     <input type="radio" name="fgr_maintenance[template]" value="logo" <?php checked( $template, 'logo' ); ?>>
                                     <strong>Vorlage 4: Logo &amp; Text</strong>
                                     <br>
                                     <span style="color:#646970;margin-left:20px;">Eigenes Logo, optionaler Text, freie Farb- und Schriftgestaltung</span>
                                 </label>
+                                <label style="display:block;">
+                                    <input type="radio" name="fgr_maintenance[template]" value="redirect" <?php checked( $template, 'redirect' ); ?>>
+                                    <strong>Vorlage 5: Weiterleitung</strong>
+                                    <br>
+                                    <span style="color:#646970;margin-left:20px;">Leitet Besucher auf jeder Unterseite zu einer beliebigen URL weiter</span>
+                                </label>
                             </fieldset>
+                        </td>
+                    </tr>
+
+                    <tr class="fgr-redirect-setting" <?php echo ( 'redirect' !== $template ) ? 'style="display:none"' : ''; ?>>
+                        <th scope="row">Weiterleitungs-URL</th>
+                        <td>
+                            <input type="url" name="fgr_maintenance[redirect_url]"
+                                   value="<?php echo esc_attr( $redirect_url ); ?>"
+                                   style="width:100%;max-width:500px;"
+                                   placeholder="https://beispiel.de/">
+                            <p class="description">
+                                Nicht eingeloggte Besucher werden von jeder Seite dieser Website hierher weitergeleitet
+                                (302, temporär) – außer vom Login (<code>wp-login.php</code> bzw. der individuellen Login-Adresse).
+                            </p>
                         </td>
                     </tr>
 
@@ -386,9 +412,10 @@ class FGR_Maintenance_Settings {
 
         <script>
         ( function () {
-            var radios    = document.querySelectorAll( 'input[name="fgr_maintenance[template]"]' );
-            var customRow = document.getElementById( 'fgr_custom_row' );
-            var logoRows  = document.querySelectorAll( '.fgr-logo-setting' );
+            var radios      = document.querySelectorAll( 'input[name="fgr_maintenance[template]"]' );
+            var customRow   = document.getElementById( 'fgr_custom_row' );
+            var logoRows    = document.querySelectorAll( '.fgr-logo-setting' );
+            var redirectRows = document.querySelectorAll( '.fgr-redirect-setting' );
 
             function updateRows( val ) {
                 if ( customRow ) {
@@ -399,6 +426,9 @@ class FGR_Maintenance_Settings {
                 }
                 logoRows.forEach( function ( row ) {
                     row.style.display = ( val === 'logo' ) ? '' : 'none';
+                } );
+                redirectRows.forEach( function ( row ) {
+                    row.style.display = ( val === 'redirect' ) ? '' : 'none';
                 } );
             }
 
